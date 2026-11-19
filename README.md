@@ -52,7 +52,7 @@ Every script describes its inputs, outputs, and command line in its module docst
 
 ## Installation
 
-The experiments of the paper used Python with PyTorch 2.4.1, Transformers 4.44.2, and segmentation-models-pytorch 0.3.4 for U-Net, PSPNet, DeepLabV3+, and the SegFormer-B2 variants, and PyTorch 2.8.0 (CUDA 12.8) with the same package versions for the UperNet and MiT-B5 networks, the Cityscapes check, and the inference on the Guangzhou street views. The training and evaluation scripts require a CUDA GPU.
+The experiments of the paper used PyTorch 2.4.1, Transformers 4.44.2, and segmentation-models-pytorch 0.3.4 for the ResNet-50 and MiT-B2 networks (one NVIDIA RTX A6000, 48 GB), and PyTorch 2.8.0 (CUDA 12.8) with the same package versions for the UperNet and MiT-B5 networks (one NVIDIA RTX 4090 D, 24 GB), the Cityscapes check, and the inference on the Guangzhou street views. The training and evaluation scripts require a CUDA GPU.
 
 ```bash
 git clone https://github.com/FEI-2006/NDVI-GVI-PM2.5-Study.git
@@ -75,7 +75,7 @@ The data are not redistributed here; obtain them from their providers under thei
 python code/seg/prepare_ade.py --root /path/ADEChallengeData2016 --out /path/vegstruct
 ```
 
-ADE20K classes are mapped to the six classes (tree: tree, palm; low vegetation: grass, plant, flower, field; sky; ground: road, sidewalk, earth, path, sand, runway, dirt track, land; built: wall, building, house, skyscraper, fence, bridge, tower, railing, column, awning, booth, hovel; other: every other class). An image is flagged as outdoor when sky covers at least 1% of its labeled pixels and it contains no ceiling. Splits: ADE20K training images with labeled pixels → `train`, except 500 randomly drawn outdoor training images (seed 20260929) → `select` (checkpoint choice); outdoor ADE20K validation images → `test`; the other validation images → `val_other`. The script writes `splits.csv`, `label_map.csv`, `summary.json`, and the label images.
+ADE20K classes are mapped to the six classes (tree: tree, palm; low vegetation: grass, plant, flower, field; sky; ground: road, sidewalk, earth, path, sand, runway, dirt track, land; built: wall, building, house, skyscraper, fence, bridge, tower, railing, column, awning, booth, hovel; other: every other class). An image is flagged as outdoor when sky covers at least 1% of its labeled pixels and it contains no ceiling. Splits: ADE20K training images with labeled pixels → `train`, except 500 randomly drawn outdoor training images (seed 20260929) → `select` (checkpoint choice); outdoor ADE20K validation images → `test`; the other validation images → `val_other`. In the manuscript this gives the ADE20K-6 data set: of the 20,210 ADE20K training images, 14 without labeled pixels are excluded and 500 are reserved for checkpoint selection, leaving 19,696 training images; 761 validation images form the held-out test set. The script writes `splits.csv`, `label_map.csv`, `summary.json`, and the label images.
 
 **2. Train and evaluate.**
 
@@ -83,7 +83,7 @@ ADE20K classes are mapped to the six classes (tree: tree, palm; low vegetation: 
 python code/seg/train_seg.py --variant vch_b5 --data /path/vegstruct --out runs/vch_b5 --gpu 0
 ```
 
-Protocol, identical for every variant: 16,000 iterations, batch size 8, random scaling (0.5–2.0 of a 512-px short side), 512 × 512 crops, horizontal flips, and mild photometric jitter (gain 0.9–1.1, offset ±10); AdamW with a learning rate of 6 × 10⁻⁵ for the pretrained encoder and 6 × 10⁻⁴ for the new layers, weight decay 0.01, 1,000 warm-up iterations and linear decay; bf16 autocast. The `select` split is evaluated every 2,000 iterations, and the checkpoint with the highest vegetation IoU (tree and low vegetation merged) is kept as `best.pt`. The `test` split is evaluated once with that checkpoint (`test_metrics.json`) and with the weights of the last iteration (`test_metrics_final.json`). The default seed is 20260929; further runs use `--seed`.
+Protocol, identical for every variant: 16,000 iterations, batch size 8, random scaling (0.5–2.0 of a 512-px short side), 512 × 512 crops, horizontal flips, and brightness and contrast perturbations (gain 0.9–1.1, offset ±10 on the 0–255 scale); AdamW with a learning rate of 6 × 10⁻⁵ for the pretrained encoder and 6 × 10⁻⁴ for the new layers, weight decay 0.01, 1,000 warm-up iterations and linear decay; bf16 autocast. The `select` split is evaluated every 2,000 iterations, and the checkpoint with the highest vegetation IoU (tree and low vegetation merged) is kept as `best.pt`. The `test` split is evaluated once with that checkpoint (`test_metrics.json`) and with the weights of the last iteration (`test_metrics_final.json`). The default seed is 20260929; further runs use `--seed`. In the manuscript, the four B2 ablation configurations were trained with three seeds each, SegFormer-B5 and VCH-SegFormer-B5 with two seeds each, and the other comparison networks once. PSPNet uses the segmentation-models-pytorch default for this architecture, a ResNet-50 encoder truncated after layer2 (`encoder_depth=3`).
 
 To run several variants and seeds in a row (environment variables `WORK` for the working directory with `data/vegstruct`, `runs/`, and `logs/`, `REPO` for this clone, and optionally `PY` for the Python interpreter):
 
@@ -108,6 +108,35 @@ python code/seg/apply_kv.py --ckpt runs/vch_b5/best.pt --variant vch_b5 --img /p
 ```
 
 For every `.jpg` image the script writes the share of pixels predicted as each class and `gvi_vs` = (tree + low vegetation) / all pixels. Images should have a short side of about 512 px, the inference size of the networks (`prepare_kv_inputs.py` does this for the KartaView photographs of the study; it reads the list of retained photographs produced by the study's data pipeline, which is not part of this repository).
+
+## Results reported in the manuscript
+
+The tables below reproduce the values of the submitted manuscript; this repository contains no result files. Test set: the 761 ADE20K-6 test images. mIoU is averaged over the six classes; vegetation IoU merges tree and low vegetation; GVI MAE is the mean absolute error of the per-image vegetation fraction. Values with ± are mean ± standard deviation over the training runs (three for the B2 models, two for the B5 models); the other networks were trained once. Parameters and GFLOPs are for a 512 × 512 input.
+
+| Model | Params (M) | GFLOPs | mIoU (%) | Tree IoU (%) | Low-vegetation IoU (%) | Veg. IoU (%) | GVI MAE |
+|---|---|---|---|---|---|---|---|
+| U-Net | 32.5 | 85.4 | 73.1 | 67.3 | 60.3 | 73.8 | 0.039 |
+| PSPNet | 2.3 | 23.5 | 67.4 | 62.3 | 55.1 | 69.9 | 0.048 |
+| DeepLabV3+ | 26.7 | 73.2 | 74.2 | 68.3 | 63.4 | 74.1 | 0.040 |
+| UperNet-ConvNeXt-T | 59.2 | 466.9 | 78.9 | 73.3 | 68.1 | 77.2 | 0.033 |
+| UperNet-Swin-T | 58.9 | 471.3 | 78.4 | 72.8 | 67.4 | 76.8 | 0.034 |
+| SegFormer-B2 | 27.4 | 121.1 | 77.9 ± 1.2 | 71.0 | 66.9 | 76.9 ± 0.5 | 0.034 |
+| VCH-SegFormer-B2 | 29.0 | 164.6 | 78.6 ± 0.5 | 72.7 | 68.2 | 77.5 ± 0.3 | 0.034 |
+| SegFormer-B5 | 84.6 | 219.4 | 78.7 ± 0.4 | 72.9 | 68.1 | 76.9 ± 0.3 | 0.032 |
+| **VCH-SegFormer-B5** | 86.3 | 263.0 | **79.3 ± 0.3** | 72.9 | 68.7 | 77.4 ± 0.2 | 0.032 |
+
+Ablation with the MiT-B2 encoder (three seeds per configuration):
+
+| B2 variant | VCG | HVH | mIoU (%) | Tree IoU (%) | Low-vegetation IoU (%) | Vegetation IoU (%) | GFLOPs |
+|---|---|---|---|---|---|---|---|
+| SegFormer-B2 | ✗ | ✗ | 77.9 ± 1.2 | 71.0 ± 2.3 | 66.9 ± 2.7 | 76.9 ± 0.5 | 121.1 |
+| + VCG | ✓ | ✗ | 78.3 ± 1.4 | 71.5 ± 1.2 | 67.8 ± 2.2 | 77.1 ± 0.6 | 121.1 |
+| + HVH | ✗ | ✓ | 78.5 ± 0.3 | 72.2 ± 0.8 | 68.7 ± 0.6 | 77.3 ± 0.5 | 164.5 |
+| VCH-SegFormer-B2 | ✓ | ✓ | 78.6 ± 0.5 | 72.7 ± 0.7 | 68.2 ± 0.7 | 77.5 ± 0.3 | 164.6 |
+
+As stated in the manuscript, the gains of the modules varied with training seed, checkpoint selection, and encoder configuration: at the selected checkpoints, the B2 mIoU differences between VCH-SegFormer-B2 and SegFormer-B2 were +1.9, +1.0, and −0.8 percentage points in the three runs. VCG adds about 0.33 million parameters and 0.08 GFLOPs; HVH adds 1.33 million parameters and 43.5 GFLOPs, mostly through the fine-head convolution.
+
+Zero-shot check on the 500 Cityscapes validation images (five merged categories, no fine-tuning; first training run of each model): VCH-SegFormer-B5 reached an mIoU of 86.3% (SegFormer-B5: 85.9%; 4.6 percentage points above DeepLabV3+) and a vegetation-fraction MAE of 0.0183 (SegFormer-B5: 0.0188; DeepLabV3+: 0.0196).
 
 ## License
 
