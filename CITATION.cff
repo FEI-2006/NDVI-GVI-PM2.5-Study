@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below and cite the accompanying manuscript."
+title: "VCH-SegFormer: street-view segmentation of trees and low vegetation"
+type: software
+authors:
+  - family-names: "Yan"
+    given-names: "Weiping"
+    affiliation: "University of Minnesota, Twin Cities"
+  - family-names: "Fei"
+    given-names: "Xiaoyan"
+    affiliation: "University of Minnesota, Twin Cities"
+repository-code: "https://github.com/FEI-2006/NDVI-GVI-PM2.5-Study"
+license: MIT
+date-released: "2026-11-19"
+keywords:
+  - semantic segmentation
+  - street-view imagery
+  - green view index
+  - urban vegetation
+  - SegFormer

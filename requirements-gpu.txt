@@ -1,0 +1,20 @@
+# Environment of the segmentation experiments of the paper.
+# U-Net, PSPNet, DeepLabV3+ and the SegFormer-B2 variants: PyTorch 2.4.1 with CUDA; UperNet and MiT-B5 networks, the Cityscapes check and the
+# inference on the Guangzhou street views: PyTorch 2.8.0+cu128 with the same versions of the packages below.
+torch==2.4.1
+huggingface_hub>=0.23.2,<1.0
+tokenizers>=0.19,<0.20
+transformers==4.44.2
+timm==0.9.7
+segmentation-models-pytorch==0.3.4
+pretrainedmodels==0.7.4
+efficientnet-pytorch==0.7.1
+munch
+six
+tqdm
+safetensors
+numpy
+pandas
+scipy
+matplotlib
+Pillow
